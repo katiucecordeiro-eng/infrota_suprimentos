@@ -31,7 +31,7 @@ const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   suprimentos: [{ href: "/fila", label: "Fila de Solicitações", icon: ListChecks }],
   unidade: [
     { href: "/buscar", label: "Buscar Item", icon: Search },
-    { href: "/solicitar", label: "Solicitar Item Novo", icon: PlusCircle },
+    { href: "/solicitar", label: "Requisição de Compra", icon: PlusCircle },
     { href: "/minhas-solicitacoes", label: "Minhas Solicitações", icon: ClipboardList },
   ],
   frota_corporativo: [

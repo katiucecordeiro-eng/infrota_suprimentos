@@ -2,7 +2,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentProfile } from "@/lib/auth/profile";
-import { getFamilias } from "@/lib/frota/queries";
+import { getFamilias, getFornecedores, getPlacasPorUnidade } from "@/lib/frota/queries";
 import { SolicitarForm } from "./solicitar-form";
 
 export default async function SolicitarPage({
@@ -10,16 +10,19 @@ export default async function SolicitarPage({
 }: {
   searchParams: Promise<{ referencia?: string; descricao?: string; familiaId?: string }>;
 }) {
-  const [profile, familias, params] = await Promise.all([
+  const [profile, familias, fornecedores, params] = await Promise.all([
     getCurrentProfile(),
     getFamilias(),
+    getFornecedores(),
     searchParams,
   ]);
+
+  const placas = profile?.unidade ? await getPlacasPorUnidade(profile.unidade) : [];
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Solicitação de Item Novo</h1>
+        <h1 className="text-2xl font-bold text-foreground">Requisição de Compra</h1>
         <p className="text-sm text-muted-foreground">
           Preencha os campos abaixo — o Suprimentos vai analisar, vincular a um
           item existente ou aprovar o cadastro no padrão.
@@ -37,6 +40,8 @@ export default async function SolicitarPage({
       ) : (
         <SolicitarForm
           familias={familias}
+          fornecedores={fornecedores}
+          placas={placas}
           defaultValues={{
             referencia: params.referencia,
             descricao: params.descricao,

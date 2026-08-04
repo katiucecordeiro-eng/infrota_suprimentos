@@ -9,13 +9,26 @@ import { requireRole } from "@/lib/auth/profile";
 
 export type SolicitarState = { error?: string } | undefined;
 
+const ITEM_ESTOQUE = "estoque";
+const OUTRO_FORNECEDOR = "outro";
+const SEM_FORNECEDOR = "nenhum";
+
 const solicitarSchema = z.object({
+  tipoRequisicao: z.enum(["emergencial", "compra_mensal", "estoque"], {
+    message: "Selecione o tipo de requisição.",
+  }),
   familiaId: z.string().uuid("Selecione a família do item."),
   descricaoCurta: z.string().trim().min(3, "Descreva o item em poucas palavras."),
   referenciaFabricante: z.string().trim().min(1, "Referência do fabricante é obrigatória."),
   aplicacao: z.string().trim().min(1, "Informe a aplicação/modelo do veículo."),
+  codigoPeca: z.string().trim().optional(),
+  marca: z.string().trim().optional(),
+  modeloPeca: z.string().trim().optional(),
   lado: z.enum(["D", "E"]).optional(),
   unidadeMedida: z.string().trim().min(1, "Informe a unidade de medida."),
+  placaId: z.string().trim().min(1, "Selecione a placa do veículo ou item para estoque."),
+  fornecedorId: z.string().trim().optional(),
+  fornecedorNome: z.string().trim().optional(),
 });
 
 export async function solicitarItemNovo(
@@ -32,13 +45,22 @@ export async function solicitarItemNovo(
   }
 
   const lado = formData.get("lado");
+  const fornecedorIdRaw = formData.get("fornecedorId");
   const parsed = solicitarSchema.safeParse({
+    tipoRequisicao: formData.get("tipoRequisicao"),
     familiaId: formData.get("familiaId"),
     descricaoCurta: formData.get("descricaoCurta"),
     referenciaFabricante: formData.get("referenciaFabricante"),
     aplicacao: formData.get("aplicacao"),
+    codigoPeca: formData.get("codigoPeca") || undefined,
+    marca: formData.get("marca") || undefined,
+    modeloPeca: formData.get("modeloPeca") || undefined,
     unidadeMedida: formData.get("unidadeMedida"),
     lado: lado === "D" || lado === "E" ? lado : undefined,
+    placaId: formData.get("placaId"),
+    fornecedorId:
+      fornecedorIdRaw && fornecedorIdRaw !== SEM_FORNECEDOR ? fornecedorIdRaw : undefined,
+    fornecedorNome: formData.get("fornecedorNome") || undefined,
   });
 
   if (!parsed.success) {
@@ -61,6 +83,9 @@ export async function solicitarItemNovo(
     fotoPath = path;
   }
 
+  const isItemEstoque = parsed.data.placaId === ITEM_ESTOQUE;
+  const isOutroFornecedor = parsed.data.fornecedorId === OUTRO_FORNECEDOR;
+
   const { error: insertError } = await supabase.from("solicitacoes").insert({
     unidade: profile.unidade,
     solicitante_id: profile.id,
@@ -71,6 +96,14 @@ export async function solicitarItemNovo(
     lado: parsed.data.lado ?? null,
     unidade_medida: parsed.data.unidadeMedida,
     foto_url: fotoPath,
+    codigo_peca: parsed.data.codigoPeca || null,
+    marca: parsed.data.marca || null,
+    modelo_peca: parsed.data.modeloPeca || null,
+    tipo_requisicao: parsed.data.tipoRequisicao,
+    placa: isItemEstoque ? null : parsed.data.placaId,
+    item_estoque: isItemEstoque,
+    fornecedor_sugerido_id: !isOutroFornecedor ? (parsed.data.fornecedorId ?? null) : null,
+    fornecedor_sugerido_nome: isOutroFornecedor ? parsed.data.fornecedorNome || null : null,
   });
 
   if (insertError) {

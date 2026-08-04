@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -50,20 +51,34 @@ export default async function MinhasSolicitacoesPage() {
               </TableHeader>
               <TableBody>
                 {solicitacoes.map((solicitacao) => (
-                  <TableRow key={solicitacao.id}>
+                  <TableRow key={solicitacao.id} className="cursor-pointer">
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                      {formatarData(solicitacao.data_solicitacao)}
+                      <Link href={`/minhas-solicitacoes/${solicitacao.id}`} className="block">
+                        {formatarData(solicitacao.data_solicitacao)}
+                      </Link>
                     </TableCell>
-                    <TableCell>{solicitacao.familia_nome}</TableCell>
                     <TableCell>
-                      <p className="text-foreground">{solicitacao.descricao_curta}</p>
-                      <p className="font-mono-nums text-xs text-muted-foreground">
-                        Ref: {solicitacao.referencia_fabricante}
-                      </p>
+                      <Link href={`/minhas-solicitacoes/${solicitacao.id}`} className="block">
+                        {solicitacao.familia_nome}
+                      </Link>
                     </TableCell>
-                    <TableCell>{solicitacao.solicitante_nome}</TableCell>
                     <TableCell>
-                      <StatusBadge status={solicitacao.status} />
+                      <Link href={`/minhas-solicitacoes/${solicitacao.id}`} className="block">
+                        <p className="text-foreground">{solicitacao.descricao_curta}</p>
+                        <p className="font-mono-nums text-xs text-muted-foreground">
+                          Ref: {solicitacao.referencia_fabricante}
+                        </p>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/minhas-solicitacoes/${solicitacao.id}`} className="block">
+                        {solicitacao.solicitante_nome}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/minhas-solicitacoes/${solicitacao.id}`} className="block">
+                        <StatusBadge status={solicitacao.status} />
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -8,6 +8,7 @@ import type {
   Placa,
   RankingUnidade,
   SolicitacaoComRelacoes,
+  TipoRequisicao,
 } from "@/lib/frota/types";
 
 type SolicitacaoRow = {
@@ -29,9 +30,19 @@ type SolicitacaoRow = {
   sla_limite: string;
   created_at: string;
   updated_at: string;
+  codigo_peca: string | null;
+  marca: string | null;
+  modelo_peca: string | null;
+  fornecedor_sugerido_id: string | null;
+  fornecedor_sugerido_nome: string | null;
+  placa: string | null;
+  item_estoque: boolean;
+  tipo_requisicao: TipoRequisicao | null;
   familia: { nome: string } | null;
   solicitante: { nome: string } | null;
   responsavel: { nome: string } | null;
+  fornecedor_sugerido: { nome: string } | null;
+  placa_info: { modelo_veiculo: string } | null;
 };
 
 const SOLICITACAO_SELECT = `
@@ -39,9 +50,13 @@ const SOLICITACAO_SELECT = `
   aplicacao, lado, unidade_medida, foto_url, status, item_vinculado_id,
   responsavel_suprimentos_id, data_solicitacao, data_resposta, sla_limite,
   created_at, updated_at,
+  codigo_peca, marca, modelo_peca, fornecedor_sugerido_id, fornecedor_sugerido_nome,
+  placa, item_estoque, tipo_requisicao,
   familia:familias!solicitacoes_familia_id_fkey(nome),
   solicitante:profiles!solicitacoes_solicitante_id_fkey(nome),
-  responsavel:profiles!solicitacoes_responsavel_suprimentos_id_fkey(nome)
+  responsavel:profiles!solicitacoes_responsavel_suprimentos_id_fkey(nome),
+  fornecedor_sugerido:fornecedores!solicitacoes_fornecedor_sugerido_id_fkey(nome),
+  placa_info:placas(modelo_veiculo)
 `;
 
 function mapSolicitacao(row: SolicitacaoRow): SolicitacaoComRelacoes {
@@ -64,9 +79,18 @@ function mapSolicitacao(row: SolicitacaoRow): SolicitacaoComRelacoes {
     sla_limite: row.sla_limite,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    codigo_peca: row.codigo_peca,
+    marca: row.marca,
+    modelo_peca: row.modelo_peca,
+    fornecedor_sugerido_id: row.fornecedor_sugerido_id,
+    fornecedor_sugerido_nome: row.fornecedor_sugerido?.nome ?? row.fornecedor_sugerido_nome,
+    placa: row.placa,
+    item_estoque: row.item_estoque,
+    tipo_requisicao: row.tipo_requisicao,
     familia_nome: row.familia?.nome ?? "—",
     solicitante_nome: row.solicitante?.nome ?? "—",
     responsavel_nome: row.responsavel?.nome ?? null,
+    placa_modelo_veiculo: row.placa_info?.modelo_veiculo ?? null,
   };
 }
 
@@ -261,6 +285,25 @@ export async function getPlacas(): Promise<Placa[]> {
 
   if (error) {
     console.error("[frota] erro ao buscar placas", error);
+    return [];
+  }
+
+  return (data as Placa[]) ?? [];
+}
+
+// Usado no formulário de Requisição de Compra — a unidade só escolhe entre
+// os veículos da própria unidade (ou "Item para Estoque"), não a frota
+// inteira.
+export async function getPlacasPorUnidade(unidade: string): Promise<Placa[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("placas")
+    .select("placa, modelo_veiculo, unidade, chassi, ano")
+    .eq("unidade", unidade)
+    .order("placa", { ascending: true });
+
+  if (error) {
+    console.error("[frota] erro ao buscar placas da unidade", error);
     return [];
   }
 

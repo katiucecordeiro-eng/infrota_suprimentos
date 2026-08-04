@@ -136,7 +136,7 @@ export function BuscaForm({ familias }: { familias: Familia[] }) {
               </p>
               <Button asChild variant="outline">
                 <Link href={`/solicitar?${solicitarParams.toString()}`}>
-                  <PlusCircle /> Solicitar item novo
+                  <PlusCircle /> Abrir requisição de compra
                 </Link>
               </Button>
             </div>

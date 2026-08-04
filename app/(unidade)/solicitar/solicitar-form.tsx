@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LADO_LABELS, UNIDADES_MEDIDA, type Familia } from "@/lib/frota/types";
+import {
+  LADO_LABELS,
+  TIPO_REQUISICAO_LABELS,
+  UNIDADES_MEDIDA,
+  type Familia,
+  type Fornecedor,
+  type Placa,
+} from "@/lib/frota/types";
 import { solicitarItemNovo, type SolicitarState } from "./actions";
+
+const ITEM_ESTOQUE = "estoque";
+const OUTRO_FORNECEDOR = "outro";
+const SEM_FORNECEDOR = "nenhum";
 
 export function SolicitarForm({
   familias,
+  fornecedores,
+  placas,
   defaultValues,
 }: {
   familias: Familia[];
+  fornecedores: Fornecedor[];
+  placas: Placa[];
   defaultValues: { referencia?: string; descricao?: string; familiaId?: string };
 }) {
   const [state, formAction, isPending] = useActionState<SolicitarState, FormData>(
@@ -29,10 +44,29 @@ export function SolicitarForm({
     undefined,
   );
 
+  const [placaId, setPlacaId] = useState("");
+  const [fornecedorId, setFornecedorId] = useState(SEM_FORNECEDOR);
+
   return (
     <Card>
       <CardContent className="pt-6">
         <form action={formAction} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2 sm:max-w-sm">
+            <Label htmlFor="tipoRequisicao">Tipo de requisição *</Label>
+            <Select name="tipoRequisicao" required>
+              <SelectTrigger id="tipoRequisicao">
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TIPO_REQUISICAO_LABELS).map(([valor, label]) => (
+                  <SelectItem key={valor} value={valor}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex flex-col gap-2 sm:max-w-sm">
             <Label htmlFor="familiaId">Família / Categoria *</Label>
             <Select name="familiaId" defaultValue={defaultValues.familiaId} required>
@@ -82,6 +116,21 @@ export function SolicitarForm({
             </div>
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="codigoPeca">Código da peça</Label>
+              <Input id="codigoPeca" name="codigoPeca" placeholder="Ex.: 000123" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="marca">Marca</Label>
+              <Input id="marca" name="marca" placeholder="Ex.: Bosch" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="modeloPeca">Modelo da peça</Label>
+              <Input id="modeloPeca" name="modeloPeca" placeholder="Ex.: Standard" />
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="lado">Lado</Label>
@@ -111,6 +160,56 @@ export function SolicitarForm({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="placaId">Placa do veículo *</Label>
+            <input type="hidden" name="placaId" value={placaId} />
+            <Select value={placaId} onValueChange={setPlacaId} required>
+              <SelectTrigger id="placaId">
+                <SelectValue placeholder="Selecione a placa ou item para estoque" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ITEM_ESTOQUE}>Item para Estoque (sem veículo)</SelectItem>
+                {placas.map((placa) => (
+                  <SelectItem key={placa.placa} value={placa.placa}>
+                    {placa.placa} — {placa.modelo_veiculo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {placas.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma placa cadastrada pra sua unidade ainda — se for pra um
+                veículo, peça pro Suprimentos cadastrar a placa primeiro.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="fornecedorId">Fornecedor sugerido (opcional)</Label>
+            <input type="hidden" name="fornecedorId" value={fornecedorId} />
+            <Select value={fornecedorId} onValueChange={setFornecedorId}>
+              <SelectTrigger id="fornecedorId">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SEM_FORNECEDOR}>Nenhum / não sei</SelectItem>
+                {fornecedores.map((fornecedor) => (
+                  <SelectItem key={fornecedor.id} value={fornecedor.id}>
+                    {fornecedor.nome}
+                  </SelectItem>
+                ))}
+                <SelectItem value={OUTRO_FORNECEDOR}>Outro (não listado)</SelectItem>
+              </SelectContent>
+            </Select>
+            {fornecedorId === OUTRO_FORNECEDOR ? (
+              <Input
+                name="fornecedorNome"
+                placeholder="Nome do fornecedor sugerido"
+                className="mt-1"
+              />
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">

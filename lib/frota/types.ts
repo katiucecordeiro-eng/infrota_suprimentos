@@ -50,6 +50,14 @@ export const UNIDADES_MEDIDA = [
 
 export type Decisao = "vinculado_existente" | "aprovado_novo" | "rejeitado";
 
+export type TipoRequisicao = "emergencial" | "compra_mensal" | "estoque";
+
+export const TIPO_REQUISICAO_LABELS: Record<TipoRequisicao, string> = {
+  emergencial: "Requisição Emergencial",
+  compra_mensal: "Requisição Compra Mensal",
+  estoque: "Requisição para Estoque",
+};
+
 export interface Profile {
   id: string;
   nome: string;
@@ -86,6 +94,17 @@ export interface Solicitacao {
   sla_limite: string;
   created_at: string;
   updated_at: string;
+  codigo_peca: string | null;
+  marca: string | null;
+  modelo_peca: string | null;
+  fornecedor_sugerido_id: string | null;
+  fornecedor_sugerido_nome: string | null;
+  // Ou `placa` tem valor (requisição pra veículo específico) ou
+  // `item_estoque` é true (sem veículo) — nunca os dois, nunca nenhum
+  // (CHECK constraint solicitacoes_placa_ou_estoque no banco).
+  placa: string | null;
+  item_estoque: boolean;
+  tipo_requisicao: TipoRequisicao | null;
 }
 
 // Formato retornado pela view/join usado na fila e no detalhe: junta a
@@ -95,6 +114,7 @@ export interface SolicitacaoComRelacoes extends Solicitacao {
   familia_nome: string;
   solicitante_nome: string;
   responsavel_nome: string | null;
+  placa_modelo_veiculo: string | null;
 }
 
 export interface CatalogoPadrao {
