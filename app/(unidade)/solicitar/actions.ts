@@ -72,6 +72,13 @@ export async function solicitarItemNovo(
   let fotoPath: string | null = null;
   const foto = formData.get("foto");
   if (foto instanceof File && foto.size > 0) {
+    // Redundante com o limite do <input> no client (solicitar-form.tsx),
+    // mas o client pode ser contornado — sem isso aqui, um arquivo grande
+    // o bastante ainda estoura o bodySizeLimit do next.config.ts (10mb) e
+    // quebra com o mesmo erro de "Body exceeded" que motivou esse ajuste.
+    if (foto.size > 8 * 1024 * 1024) {
+      return { error: "A foto deve ter no máximo 8MB. Tente uma imagem menor." };
+    }
     const path = `${profile.unidade}/${randomUUID()}-${foto.name}`;
     const { error: uploadError } = await supabase.storage
       .from("solicitacoes-fotos")

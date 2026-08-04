@@ -46,6 +46,12 @@ export function SolicitarForm({
 
   const [placaId, setPlacaId] = useState("");
   const [fornecedorId, setFornecedorId] = useState(SEM_FORNECEDOR);
+  const [fotoErro, setFotoErro] = useState<string | null>(null);
+
+  // Aviso imediato antes de sequer tentar enviar — sem isso, uma foto de
+  // celular (facilmente 3-8MB) só falha depois do envio, com o corpo da
+  // Server Action rejeitado pelo limite configurado em next.config.ts.
+  const MAX_FOTO_BYTES = 8 * 1024 * 1024;
 
   return (
     <Card>
@@ -213,8 +219,29 @@ export function SolicitarForm({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="foto">Foto (opcional)</Label>
-            <Input id="foto" name="foto" type="file" accept="image/*" />
+            <Label htmlFor="foto">Foto (opcional, máx. 8MB)</Label>
+            <Input
+              id="foto"
+              name="foto"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const arquivo = e.target.files?.[0];
+                if (arquivo && arquivo.size > MAX_FOTO_BYTES) {
+                  setFotoErro(
+                    `Essa foto tem ${(arquivo.size / 1024 / 1024).toFixed(1)}MB — o máximo é 8MB. Escolha outra ou comprima antes de anexar.`,
+                  );
+                  e.target.value = "";
+                } else {
+                  setFotoErro(null);
+                }
+              }}
+            />
+            {fotoErro ? (
+              <p className="text-sm text-danger" role="alert">
+                {fotoErro}
+              </p>
+            ) : null}
           </div>
 
           {state?.error ? (
