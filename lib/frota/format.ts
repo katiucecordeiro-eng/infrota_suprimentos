@@ -7,3 +7,13 @@ export function formatarData(iso: string): string {
     minute: "2-digit",
   }).format(new Date(iso));
 }
+
+// Colunas `numeric` do Postgres chegam como string via PostgREST (evita
+// perda de precisão de ponto flutuante) — nunca number direto, mesmo com
+// o campo tipado como number no TS. Sempre formatar preço por aqui.
+export function formatarPreco(valor: number | string): string {
+  return Number(valor).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}

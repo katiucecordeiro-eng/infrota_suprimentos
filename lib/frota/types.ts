@@ -117,3 +117,43 @@ export interface ItemSimilar {
   match_tipo: "referencia_exata" | "similaridade_textual";
   score: number;
 }
+
+export interface Fornecedor {
+  id: string;
+  nome: string;
+  cnpj: string | null;
+  avaliacao: number | null;
+}
+
+export interface Placa {
+  placa: string;
+  modelo_veiculo: string;
+  unidade: string;
+}
+
+export type UnidadeGarantia = "dias" | "meses";
+
+export interface Compra {
+  id: string;
+  solicitacao_id: string | null;
+  peca_id: string;
+  fornecedor_id: string;
+  // Tipado como number por conveniência, mas chega como string via
+  // PostgREST (coluna `numeric`) — sempre formatar com formatarPreco()
+  // em vez de .toFixed() direto.
+  preco: number;
+  data_compra: string;
+  prazo_prometido_dias: number;
+  prazo_real_dias: number | null;
+  nota_fiscal: string;
+  placa: string | null;
+  garantia_ate: string | null;
+  created_at: string;
+}
+
+export interface CompraComRelacoes extends Compra {
+  fornecedor_nome: string;
+  peca_codigo_benner: string;
+  peca_nome_padronizado: string;
+  placa_modelo_veiculo: string | null;
+}

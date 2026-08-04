@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ItemSimilar, SolicitacaoComRelacoes } from "@/lib/frota/types";
+import type {
+  CompraComRelacoes,
+  Compra,
+  Fornecedor,
+  ItemSimilar,
+  Placa,
+  SolicitacaoComRelacoes,
+} from "@/lib/frota/types";
 
 type SolicitacaoRow = {
   id: string;
@@ -201,4 +208,107 @@ export async function getFamilias() {
   }
 
   return data ?? [];
+}
+
+export async function getCatalogoPadraoById(
+  id: string,
+): Promise<{ id: string; codigo_benner: string; nome_padronizado: string } | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("catalogo_padrao")
+    .select("id, codigo_benner, nome_padronizado")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error("[frota] erro ao buscar item do catálogo", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getFornecedores(): Promise<Fornecedor[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fornecedores")
+    .select("id, nome, cnpj, avaliacao")
+    .order("nome", { ascending: true });
+
+  if (error) {
+    console.error("[frota] erro ao buscar fornecedores", error);
+    return [];
+  }
+
+  return (data as Fornecedor[]) ?? [];
+}
+
+// Normaliza pro mesmo formato usado como chave primária em `placas`
+// (maiúscula, sem espaço/hífen) — tolera a placa digitada de qualquer
+// jeito (com ou sem traço, minúscula etc.).
+export function normalizarPlaca(input: string): string {
+  return input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export async function buscarPlacas(query: string): Promise<Placa[]> {
+  const supabase = await createClient();
+  const termo = normalizarPlaca(query);
+  if (!termo) return [];
+
+  const { data, error } = await supabase
+    .from("placas")
+    .select("placa, modelo_veiculo, unidade")
+    .ilike("placa", `${termo}%`)
+    .order("placa", { ascending: true })
+    .limit(10);
+
+  if (error) {
+    console.error("[frota] erro ao buscar placas", error);
+    return [];
+  }
+
+  return (data as Placa[]) ?? [];
+}
+
+const COMPRA_SELECT = `
+  id, solicitacao_id, peca_id, fornecedor_id, preco, data_compra,
+  prazo_prometido_dias, prazo_real_dias, nota_fiscal, placa, garantia_ate,
+  created_at,
+  fornecedor:fornecedores(nome),
+  peca:catalogo_padrao(codigo_benner, nome_padronizado),
+  placa_info:placas(modelo_veiculo)
+`;
+
+type CompraRow = Compra & {
+  fornecedor: { nome: string } | null;
+  peca: { codigo_benner: string; nome_padronizado: string } | null;
+  placa_info: { modelo_veiculo: string } | null;
+};
+
+function mapCompra(row: CompraRow): CompraComRelacoes {
+  return {
+    ...row,
+    fornecedor_nome: row.fornecedor?.nome ?? "—",
+    peca_codigo_benner: row.peca?.codigo_benner ?? "—",
+    peca_nome_padronizado: row.peca?.nome_padronizado ?? "—",
+    placa_modelo_veiculo: row.placa_info?.modelo_veiculo ?? null,
+  };
+}
+
+export async function getComprasPorSolicitacao(
+  solicitacaoId: string,
+): Promise<CompraComRelacoes[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("compras")
+    .select(COMPRA_SELECT)
+    .eq("solicitacao_id", solicitacaoId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[frota] erro ao buscar compras da solicitação", error);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as CompraRow[]).map(mapCompra);
 }

@@ -1,15 +1,18 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, Link2, PackagePlus, XCircle } from "lucide-react";
+import { CheckCircle2, Link2, PackagePlus, ShoppingCart, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/frota/status-badge";
 import { SlaBadge } from "@/components/frota/sla-badge";
 import { createClient } from "@/lib/supabase/server";
 import { LADO_LABELS } from "@/lib/frota/types";
-import { formatarData } from "@/lib/frota/format";
+import { formatarData, formatarPreco } from "@/lib/frota/format";
 import {
   buscarItensSimilares,
+  getComprasPorSolicitacao,
   getSolicitacaoById,
   getUltimaDecisao,
 } from "@/lib/frota/queries";
@@ -47,7 +50,7 @@ export default async function SolicitacaoDetailPage({
 
   const acionavel = STATUS_ACIONAVEIS.includes(solicitacao.status);
 
-  const [itensSimilares, ultimaDecisao, fotoUrl] = await Promise.all([
+  const [itensSimilares, ultimaDecisao, fotoUrl, comprasExistentes] = await Promise.all([
     acionavel
       ? buscarItensSimilares({
           referencia: solicitacao.referencia_fabricante,
@@ -57,6 +60,9 @@ export default async function SolicitacaoDetailPage({
       : Promise.resolve([]),
     !acionavel ? getUltimaDecisao(id) : Promise.resolve(null),
     resolveFotoUrl(solicitacao.foto_url),
+    !acionavel && solicitacao.item_vinculado_id
+      ? getComprasPorSolicitacao(id)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -157,6 +163,10 @@ export default async function SolicitacaoDetailPage({
       ) : (
         <DecisaoRegistradaCard decisao={ultimaDecisao} />
       )}
+
+      {!acionavel && solicitacao.item_vinculado_id ? (
+        <ComprasCard solicitacaoId={id} compras={comprasExistentes} />
+      ) : null}
     </div>
   );
 }
@@ -216,6 +226,45 @@ function DecisaoRegistradaCard({
           Por {decisao.responsavel_nome} em {formatarData(decisao.data)}
         </p>
       </CardContent>
+    </Card>
+  );
+}
+
+function ComprasCard({
+  solicitacaoId,
+  compras,
+}: {
+  solicitacaoId: string;
+  compras: Awaited<ReturnType<typeof getComprasPorSolicitacao>>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Compra</CardTitle>
+        <Button asChild size="sm">
+          <Link href={`/solicitacoes/${solicitacaoId}/compra`}>
+            <ShoppingCart /> {compras.length > 0 ? "Registrar outra compra" : "Registrar Compra"}
+          </Link>
+        </Button>
+      </CardHeader>
+      {compras.length > 0 ? (
+        <CardContent className="flex flex-col gap-2">
+          {compras.map((compra) => (
+            <div
+              key={compra.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm"
+            >
+              <span className="text-foreground">
+                {compra.fornecedor_nome} — {formatarPreco(compra.preco)}
+              </span>
+              <span className="font-mono-nums text-xs text-muted-foreground">
+                NF {compra.nota_fiscal} · {formatarData(compra.data_compra)}
+                {compra.placa ? ` · Placa ${compra.placa}` : ""}
+              </span>
+            </div>
+          ))}
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
