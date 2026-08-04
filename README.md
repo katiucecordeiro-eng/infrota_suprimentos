@@ -65,6 +65,43 @@ Supabase Auth, ele nasce com `role = 'unidade'` e `unidade = NULL`
 update profiles set role = 'suprimentos' where id = '<uuid do usuário>';
 ```
 
+## Infraestrutura
+
+- **Supabase**: projeto dedicado `infrota-suprimentos` (ref `ttkefolvafbaeodjdedl`,
+  região `sa-east-1`, plano free), na mesma organização dos outros projetos
+  Supabase da conta. As 3 migrations em `supabase/migrations/` já foram
+  aplicadas nele (`0001_init`, e `0002`/`0003` de hardening — ver advisors
+  abaixo). URL e chave anon: pegue em Supabase → Project Settings → API
+  (ou peça pra quem tiver acesso à conta) e cole no `.env.local`/nas env
+  vars da Vercel — a chave anon é pública por design (protegida pela RLS
+  do schema), não precisa ser tratada como segredo.
+- **Advisors de segurança**: limpos, exceto 2 avisos aceitos conscientemente
+  — `current_role_frota()`/`current_unidade_frota()` continuam executáveis
+  por `authenticated` via RPC direto porque as policies de RLS deste módulo
+  dependem disso (revogar quebraria toda consulta autenticada); as duas
+  funções só devolvem o papel/unidade do próprio usuário logado, então
+  chamá-las direto não vaza nada que o usuário já não soubesse sobre si
+  mesmo.
+- **Vercel**: sem integração automatizada nesta sessão (nenhuma ferramenta
+  com permissão de escrita na Vercel disponível aqui — só um conector de
+  leitura de projetos/deployments). Deploy manual:
+  1. No dashboard da Vercel: **Add New → Project** → importar
+     `katiucecordeiro-eng/infrota_suprimentos` do GitHub.
+  2. Root Directory: deixe na raiz (o projeto Next.js já está na raiz do
+     repo, não numa subpasta).
+  3. Em **Environment Variables**, adicione `NEXT_PUBLIC_SUPABASE_URL` e
+     `NEXT_PUBLIC_SUPABASE_ANON_KEY` (valores do projeto Supabase acima) e
+     `NEXT_PUBLIC_APP_URL` (a URL que a Vercel vai atribuir, ex.
+     `https://infrota-suprimentos.vercel.app` — dá pra ajustar depois do
+     primeiro deploy). `SUPABASE_SERVICE_ROLE_KEY` não é necessária ainda
+     (nenhum código deste módulo usa `lib/supabase/admin.ts`).
+  4. **Deploy**. Build command/output já são os padrões do Next.js, nada a
+     configurar.
+  5. Depois do primeiro deploy: criar o primeiro usuário via Supabase Auth
+     (dashboard → Authentication → Users → Add user) e promover o papel
+     dele via SQL (ver seção "Rodando localmente" acima) — sem isso
+     ninguém consegue logar em nenhum papel além de `unidade`.
+
 ## Decisões e limitações assumidas
 
 - **Código Benner não é gerado pelo sistema.** O fluxo real é: Suprimentos
