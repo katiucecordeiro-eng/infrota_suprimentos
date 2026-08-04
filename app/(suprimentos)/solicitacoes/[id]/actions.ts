@@ -213,6 +213,51 @@ export async function rejeitarSolicitacao(
   return { success: true };
 }
 
+export type PedirOrcamentosState = { error?: string; success?: boolean } | undefined;
+
+const pedirOrcamentosSchema = z.object({
+  solicitacaoId: z.string().uuid(),
+  fornecedorIds: z.array(z.string().uuid()).min(1, "Selecione pelo menos um fornecedor."),
+});
+
+// Cria 1 linha de orçamento por fornecedor selecionado (RFQ) — cada uma
+// nasce com um token próprio (default do banco), usado só na hora de
+// montar o link "/orcamento/[token]" pro Suprimentos copiar e mandar por
+// fora (WhatsApp/e-mail manual — sem provedor de e-mail configurado ainda).
+export async function pedirOrcamentos(
+  _prevState: PedirOrcamentosState,
+  formData: FormData,
+): Promise<PedirOrcamentosState> {
+  const profile = await requireRole("suprimentos");
+
+  const parsed = pedirOrcamentosSchema.safeParse({
+    solicitacaoId: formData.get("solicitacaoId"),
+    fornecedorIds: formData.getAll("fornecedorIds"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const supabase = await createClient();
+  const { solicitacaoId, fornecedorIds } = parsed.data;
+
+  const { error } = await supabase.from("orcamentos").insert(
+    fornecedorIds.map((fornecedorId) => ({
+      solicitacao_id: solicitacaoId,
+      fornecedor_id: fornecedorId,
+      criado_por: profile.id,
+    })),
+  );
+
+  if (error) {
+    return { error: "Não foi possível criar o(s) pedido(s) de orçamento. Tente novamente." };
+  }
+
+  revalidatePath(`/solicitacoes/${solicitacaoId}`);
+  return { success: true };
+}
+
 const marcarEmAnaliseSchema = z.object({ solicitacaoId: z.string().uuid() });
 
 // Chamado pela própria página de detalhe ao ser aberta pela 1ª vez — sinaliza

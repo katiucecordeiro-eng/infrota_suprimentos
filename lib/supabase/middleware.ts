@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login"];
+// "/orcamento" é a página pública do fornecedor responder um pedido de
+// orçamento (link com token, sem login — ver lib/frota/orcamento-publico.ts).
+const PUBLIC_PATHS = ["/login", "/orcamento"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

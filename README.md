@@ -45,16 +45,36 @@ Os 3 painéis do pedido original estão implementados:
   - `/buscar`: busca de item existente (mesma RPC de similaridade do
     Suprimentos) antes de abrir uma solicitação nova — evita duplicidade já
     na ponta de quem pede.
-  - `/solicitar`: formulário de "Solicitação de Item Novo" (referência,
-    aplicação, lado, unidade de medida, foto).
+  - `/solicitar`: formulário de **"Requisição de Compra"** — tipo de
+    requisição (Emergencial/Compra Mensal/Estoque), família, descrição,
+    referência do fabricante, código/marca/modelo da peça, aplicação, lado,
+    unidade de medida, fornecedor sugerido (opcional), foto e placa do
+    veículo (obrigatória: uma placa cadastrada da própria unidade **ou**
+    "Item para Estoque" — `solicitacoes_placa_ou_estoque` no banco garante
+    isso).
   - `/minhas-solicitacoes`: histórico das solicitações da própria unidade
     (compartilhado entre todo mundo do mesmo CDD), com status.
+  - `/minhas-solicitacoes/[id]`: acompanhamento read-only de uma requisição
+    — detalhes, timeline, decisão do Suprimentos (vinculado/aprovado/
+    rejeitado) e dados da compra quando já registrada.
 - **Painel Frota Corporativo** (`app/(governanca)/governanca`): KPIs
   agregados de todas as unidades (total de solicitações, abertas x
   fechadas, SLA médio de resposta e % dentro do prazo, % de duplicidade
   evitada a partir de `log_decisoes`) + ranking de unidades por volume/SLA.
   Calculado direto de `solicitacoes`/`log_decisoes` no servidor (sem view
   dedicada — volume baixo o suficiente pra não justificar uma).
+- **Orçamentos com fornecedores (RFQ)**: na página de detalhe da
+  solicitação (Suprimentos), depois do item aprovado/vinculado, um
+  formulário deixa selecionar 1+ fornecedores e cria um pedido de orçamento
+  por fornecedor (tabela `orcamentos`), cada um com um link público próprio
+  (`/orcamento/[token]`) pro fornecedor preencher preço/prazo/observações
+  **sem precisar de conta** — o token é a única credencial de acesso
+  (`lib/frota/orcamento-publico.ts`, roda com a service role key, ignora
+  RLS). Suprimentos copia o link e manda por fora (WhatsApp, e-mail manual
+  etc.) e depois compara as respostas lado a lado na mesma seção. **Sem
+  envio de e-mail automático nesta rodada** — nenhum provedor (Resend/SMTP/
+  etc.) foi configurado; é o próximo passo natural quando a usuária
+  escolher um.
 
 ## Ainda não implementado
 
@@ -103,12 +123,17 @@ update profiles set role = 'suprimentos' where id = '<uuid do usuário>';
      `katiucecordeiro-eng/infrota_suprimentos` do GitHub.
   2. Root Directory: deixe na raiz (o projeto Next.js já está na raiz do
      repo, não numa subpasta).
-  3. Em **Environment Variables**, adicione `NEXT_PUBLIC_SUPABASE_URL` e
-     `NEXT_PUBLIC_SUPABASE_ANON_KEY` (valores do projeto Supabase acima) e
-     `NEXT_PUBLIC_APP_URL` (a URL que a Vercel vai atribuir, ex.
-     `https://infrota-suprimentos.vercel.app` — dá pra ajustar depois do
-     primeiro deploy). `SUPABASE_SERVICE_ROLE_KEY` não é necessária ainda
-     (nenhum código deste módulo usa `lib/supabase/admin.ts`).
+  3. Em **Environment Variables**, adicione `NEXT_PUBLIC_SUPABASE_URL`,
+     `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` (as 3 em
+     Supabase → Project Settings → API do projeto acima — a service role key
+     é secreta, nunca commitar) e `NEXT_PUBLIC_APP_URL` (a URL que a Vercel
+     vai atribuir, ex. `https://infrota-suprimentos.vercel.app` — dá pra
+     ajustar depois do primeiro deploy). **A partir da funcionalidade de
+     orçamento com fornecedores, `SUPABASE_SERVICE_ROLE_KEY` passou a ser
+     obrigatória** (a página pública `/orcamento/[token]` usa ela pra
+     ignorar RLS e resolver o pedido só pelo token) — sem ela, essa página
+     quebra com erro 500 (`supabaseKey is required`); o resto do app
+     continua funcionando normalmente.
   4. **Deploy**. Build command/output já são os padrões do Next.js, nada a
      configurar.
   5. Depois do primeiro deploy: criar o primeiro usuário via Supabase Auth

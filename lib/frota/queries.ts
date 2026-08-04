@@ -5,6 +5,7 @@ import type {
   Fornecedor,
   GovernancaKpis,
   ItemSimilar,
+  OrcamentoComRelacoes,
   Placa,
   RankingUnidade,
   SolicitacaoComRelacoes,
@@ -479,4 +480,34 @@ export async function getRankingUnidades(): Promise<RankingUnidade[]> {
       slaMedioHoras: mediaHoras(agregados.temposHoras),
     }))
     .sort((a, b) => b.total - a.total);
+}
+
+// Lista de orçamentos pedidos pra uma solicitação (visão do Suprimentos) —
+// inclui `token` pra poder remontar o botão "Copiar link" mesmo depois de
+// recarregar a página (não só logo após criar o pedido).
+export async function getOrcamentosPorSolicitacao(
+  solicitacaoId: string,
+): Promise<OrcamentoComRelacoes[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("orcamentos")
+    .select(
+      `id, solicitacao_id, fornecedor_id, token, status, preco, prazo_entrega_dias,
+       observacoes, criado_por, enviado_em, respondido_em, created_at,
+       fornecedor:fornecedores(nome)`,
+    )
+    .eq("solicitacao_id", solicitacaoId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[frota] erro ao buscar orçamentos", error);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as (OrcamentoComRelacoes & {
+    fornecedor: { nome: string } | null;
+  })[]).map((row) => ({
+    ...row,
+    fornecedor_nome: row.fornecedor?.nome ?? "—",
+  }));
 }

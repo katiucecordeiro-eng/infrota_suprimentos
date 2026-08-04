@@ -208,3 +208,59 @@ export interface RankingUnidade {
   fechadas: number;
   slaMedioHoras: number | null;
 }
+
+export type StatusOrcamento = "aguardando" | "respondido" | "expirado";
+
+export const STATUS_ORCAMENTO_LABELS: Record<StatusOrcamento, string> = {
+  aguardando: "Aguardando resposta",
+  respondido: "Respondido",
+  expirado: "Expirado",
+};
+
+export const STATUS_ORCAMENTO_BADGE_VARIANT: Record<
+  StatusOrcamento,
+  "default" | "secondary" | "warning" | "destructive" | "outline"
+> = {
+  aguardando: "warning",
+  respondido: "default",
+  expirado: "destructive",
+};
+
+// RFQ: pedido de orçamento pra um fornecedor sobre uma solicitação. O
+// `token` é a credencial de acesso da página pública (/orcamento/[token]) —
+// nunca exposto fora dessa própria linha (não faz parte do que o Suprimentos
+// lista, só usado pra montar o link).
+export interface Orcamento {
+  id: string;
+  solicitacao_id: string;
+  fornecedor_id: string;
+  token: string;
+  status: StatusOrcamento;
+  preco: number | null;
+  prazo_entrega_dias: number | null;
+  observacoes: string | null;
+  criado_por: string;
+  enviado_em: string;
+  respondido_em: string | null;
+  created_at: string;
+}
+
+export interface OrcamentoComRelacoes extends Orcamento {
+  fornecedor_nome: string;
+}
+
+// Dados da solicitação que a página pública do fornecedor precisa exibir —
+// deliberadamente um subconjunto pequeno (nunca dados de outra unidade,
+// SLA interno etc.), montado a partir do mesmo admin client que resolve o
+// token, não da query autenticada normal.
+export interface OrcamentoParaFornecedor extends Orcamento {
+  fornecedor_nome: string;
+  solicitacao_descricao_curta: string;
+  solicitacao_referencia_fabricante: string;
+  solicitacao_codigo_peca: string | null;
+  solicitacao_marca: string | null;
+  solicitacao_modelo_peca: string | null;
+  solicitacao_aplicacao: string;
+  solicitacao_unidade_medida: string;
+  solicitacao_unidade: string;
+}

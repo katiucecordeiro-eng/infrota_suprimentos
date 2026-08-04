@@ -13,11 +13,14 @@ import { formatarData, formatarPreco } from "@/lib/frota/format";
 import {
   buscarItensSimilares,
   getComprasPorSolicitacao,
+  getFornecedores,
+  getOrcamentosPorSolicitacao,
   getSolicitacaoById,
   getUltimaDecisao,
 } from "@/lib/frota/queries";
 import { marcarEmAnalise } from "./actions";
 import { DecisaoPanel } from "./decisao-panel";
+import { OrcamentoSection } from "./orcamento-section";
 
 const STATUS_ACIONAVEIS = ["pendente", "em_analise"];
 
@@ -50,20 +53,27 @@ export default async function SolicitacaoDetailPage({
 
   const acionavel = STATUS_ACIONAVEIS.includes(solicitacao.status);
 
-  const [itensSimilares, ultimaDecisao, fotoUrl, comprasExistentes] = await Promise.all([
-    acionavel
-      ? buscarItensSimilares({
-          referencia: solicitacao.referencia_fabricante,
-          descricao: solicitacao.descricao_curta,
-          familiaId: solicitacao.familia_id,
-        })
-      : Promise.resolve([]),
-    !acionavel ? getUltimaDecisao(id) : Promise.resolve(null),
-    resolveFotoUrl(solicitacao.foto_url),
-    !acionavel && solicitacao.item_vinculado_id
-      ? getComprasPorSolicitacao(id)
-      : Promise.resolve([]),
-  ]);
+  const [itensSimilares, ultimaDecisao, fotoUrl, comprasExistentes, fornecedores, orcamentos] =
+    await Promise.all([
+      acionavel
+        ? buscarItensSimilares({
+            referencia: solicitacao.referencia_fabricante,
+            descricao: solicitacao.descricao_curta,
+            familiaId: solicitacao.familia_id,
+          })
+        : Promise.resolve([]),
+      !acionavel ? getUltimaDecisao(id) : Promise.resolve(null),
+      resolveFotoUrl(solicitacao.foto_url),
+      !acionavel && solicitacao.item_vinculado_id
+        ? getComprasPorSolicitacao(id)
+        : Promise.resolve([]),
+      !acionavel && solicitacao.item_vinculado_id ? getFornecedores() : Promise.resolve([]),
+      !acionavel && solicitacao.item_vinculado_id
+        ? getOrcamentosPorSolicitacao(id)
+        : Promise.resolve([]),
+    ]);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -163,6 +173,15 @@ export default async function SolicitacaoDetailPage({
       ) : (
         <DecisaoRegistradaCard decisao={ultimaDecisao} />
       )}
+
+      {!acionavel && solicitacao.item_vinculado_id ? (
+        <OrcamentoSection
+          solicitacaoId={id}
+          fornecedores={fornecedores}
+          orcamentos={orcamentos}
+          appUrl={appUrl}
+        />
+      ) : null}
 
       {!acionavel && solicitacao.item_vinculado_id ? (
         <ComprasCard solicitacaoId={id} compras={comprasExistentes} />
