@@ -15,16 +15,19 @@ escritos à mão no padrão shadcn/ui + Server Actions com Zod.
 
 ## Estado atual
 
-Implementado nesta rodada (modelo de dados + Painel do Suprimentos):
+Os 3 painéis do pedido original estão implementados:
 
-- **Schema completo** (`supabase/migrations/0001_init.sql`): `profiles`
-  (papel + unidade), `familias` (lookup, seed com 12 categorias), `solicitacoes`,
-  `catalogo_padrao`, `log_decisoes`, função `buscar_itens_similares` (match
-  exato por referência normalizada + fallback por similaridade textual via
-  `pg_trgm`), RLS por papel, bucket de Storage para fotos.
+- **Schema completo** (`supabase/migrations/`): `profiles` (papel + unidade
+  + `is_admin`), `familias` (lookup, seed com 12 categorias), `solicitacoes`,
+  `catalogo_padrao`, `log_decisoes`, `fornecedores`, `placas`, `compras`,
+  função `buscar_itens_similares` (match exato por referência normalizada +
+  fallback por similaridade textual via `pg_trgm`), RLS por papel, bucket de
+  Storage para fotos.
 - **Login + guarda de papel** (`app/login/`, `lib/auth/profile.ts`): 3 papéis
   (`unidade`, `suprimentos`, `frota_corporativo`), cada um só acessa seu
-  painel — redirect automático pela home de cada papel.
+  painel — redirect automático pela home de cada papel. Quem tem
+  `is_admin = true` navega pelos 3 painéis a partir da mesma conta (trocador
+  na sidebar).
 - **Painel do Suprimentos** (`app/(suprimentos)/`):
   - `/fila`: fila de pendentes ordenada por SLA mais urgente primeiro.
   - `/solicitacoes/[id]`: ao abrir, transiciona `pendente` → `em_analise`
@@ -35,18 +38,29 @@ Implementado nesta rodada (modelo de dados + Painel do Suprimentos):
     `catalogo_padrao`) ou **Rejeitar** (não estava no pedido original, mas
     o enum de status já previa `rejeitado` — sem essa ação a fila teria
     solicitações inválidas presas para sempre).
+  - `/solicitacoes/[id]/compra`: **Registrar Compra** depois de aprovar —
+    fornecedor, preço, prazos, nota fiscal e placa do veículo (existente,
+    com modelo/chassi/ano, ou cadastrada na hora).
+- **Painel da Unidade** (`app/(unidade)/`):
+  - `/buscar`: busca de item existente (mesma RPC de similaridade do
+    Suprimentos) antes de abrir uma solicitação nova — evita duplicidade já
+    na ponta de quem pede.
+  - `/solicitar`: formulário de "Solicitação de Item Novo" (referência,
+    aplicação, lado, unidade de medida, foto).
+  - `/minhas-solicitacoes`: histórico das solicitações da própria unidade
+    (compartilhado entre todo mundo do mesmo CDD), com status.
+- **Painel Frota Corporativo** (`app/(governanca)/governanca`): KPIs
+  agregados de todas as unidades (total de solicitações, abertas x
+  fechadas, SLA médio de resposta e % dentro do prazo, % de duplicidade
+  evitada a partir de `log_decisoes`) + ranking de unidades por volume/SLA.
+  Calculado direto de `solicitacoes`/`log_decisoes` no servidor (sem view
+  dedicada — volume baixo o suficiente pra não justificar uma).
 
-## Ainda não implementado (próximas etapas, por ordem do pedido original)
+## Ainda não implementado
 
-1. **Painel da Unidade** (`unidade`): busca de item existente antes de
-   solicitar, formulário de "Solicitação de Item Novo" (a maioria dos campos
-   já existe no schema, incluindo upload de foto — o bucket já está criado),
-   lista "Minhas Solicitações".
-2. **Painel Frota Corporativo** (`frota_corporativo`, rota `/governanca`):
-   KPIs (abertas x fechadas, SLA médio, % duplicidade evitada, ranking de
-   unidades), no estilo dos cards grandes + listas categorizadas do Hub.
-3. Criação de usuários/atribuição de papel e unidade ainda é manual via SQL
-   (`profiles.role`/`profiles.unidade`) — não há tela de administração.
+- Criação de usuários/atribuição de papel e unidade ainda é manual via SQL
+  (`profiles.role`/`profiles.unidade`/`profiles.is_admin`) — não há tela de
+  administração.
 
 ## Rodando localmente
 

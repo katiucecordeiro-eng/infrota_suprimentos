@@ -162,3 +162,29 @@ export interface CompraComRelacoes extends Compra {
   peca_nome_padronizado: string;
   placa_modelo_veiculo: string | null;
 }
+
+// KPIs do Painel Frota Corporativo (/governanca) — agregados no servidor a
+// partir de `solicitacoes`/`log_decisoes` (sem view dedicada: volume baixo o
+// suficiente pra não justificar uma, ao contrário das views do KTracker CRM).
+export interface GovernancaKpis {
+  totalSolicitacoes: number;
+  abertas: number;
+  fechadas: number;
+  // Média de data_resposta - data_solicitacao das fechadas, em horas.
+  // null quando nenhuma fechada ainda tem data_resposta preenchida.
+  slaMedioHoras: number | null;
+  // Das fechadas com data_resposta, % que respondeu dentro do sla_limite.
+  slaCumpridoPct: number | null;
+  // Das decisões já registradas em log_decisoes, % que foi
+  // "vinculado_existente" (evitou cadastro duplicado no Benner).
+  duplicidadeEvitadaPct: number | null;
+  totalDecisoes: number;
+}
+
+export interface RankingUnidade {
+  unidade: string;
+  total: number;
+  abertas: number;
+  fechadas: number;
+  slaMedioHoras: number | null;
+}

@@ -3,8 +3,10 @@ import type {
   CompraComRelacoes,
   Compra,
   Fornecedor,
+  GovernancaKpis,
   ItemSimilar,
   Placa,
+  RankingUnidade,
   SolicitacaoComRelacoes,
 } from "@/lib/frota/types";
 
@@ -306,4 +308,132 @@ export async function getComprasPorSolicitacao(
   }
 
   return ((data ?? []) as unknown as CompraRow[]).map(mapCompra);
+}
+
+const STATUS_ABERTOS: string[] = ["pendente", "em_analise"];
+const STATUS_FECHADOS: string[] = ["vinculado", "aprovado", "rejeitado"];
+
+function mediaHoras(temposHoras: number[]): number | null {
+  if (temposHoras.length === 0) return null;
+  return temposHoras.reduce((acc, h) => acc + h, 0) / temposHoras.length;
+}
+
+// KPIs do Painel Frota Corporativo. RLS de `solicitacoes`/`log_decisoes` já
+// libera leitura de todas as linhas (não só da própria unidade) para
+// suprimentos/frota_corporativo — sem paginação: volume esperado (uma rede
+// de unidades pedindo peça pro Suprimentos) não justifica isso ainda.
+export async function getGovernancaKpis(): Promise<GovernancaKpis> {
+  const supabase = await createClient();
+
+  const [solicitacoesResult, decisoesResult] = await Promise.all([
+    supabase
+      .from("solicitacoes")
+      .select("status, data_solicitacao, data_resposta, sla_limite"),
+    supabase.from("log_decisoes").select("decisao"),
+  ]);
+
+  if (solicitacoesResult.error) {
+    console.error(
+      "[frota] erro ao buscar KPIs de solicitações",
+      solicitacoesResult.error,
+    );
+  }
+  if (decisoesResult.error) {
+    console.error("[frota] erro ao buscar KPIs de decisões", decisoesResult.error);
+  }
+
+  const solicitacoes = (solicitacoesResult.data ?? []) as {
+    status: string;
+    data_solicitacao: string;
+    data_resposta: string | null;
+    sla_limite: string;
+  }[];
+  const decisoes = (decisoesResult.data ?? []) as { decisao: string }[];
+
+  const abertas = solicitacoes.filter((s) => STATUS_ABERTOS.includes(s.status)).length;
+  const fechadasRows = solicitacoes.filter((s) => STATUS_FECHADOS.includes(s.status));
+
+  const temposRespostaHoras: number[] = [];
+  let dentroDoSla = 0;
+  let comRespostaCount = 0;
+
+  for (const s of fechadasRows) {
+    if (!s.data_resposta) continue;
+    comRespostaCount += 1;
+    const inicio = new Date(s.data_solicitacao).getTime();
+    const fim = new Date(s.data_resposta).getTime();
+    temposRespostaHoras.push((fim - inicio) / (1000 * 60 * 60));
+    if (fim <= new Date(s.sla_limite).getTime()) dentroDoSla += 1;
+  }
+
+  const totalDecisoes = decisoes.length;
+  const duplicidadeEvitada = decisoes.filter(
+    (d) => d.decisao === "vinculado_existente",
+  ).length;
+
+  return {
+    totalSolicitacoes: solicitacoes.length,
+    abertas,
+    fechadas: fechadasRows.length,
+    slaMedioHoras: mediaHoras(temposRespostaHoras),
+    slaCumpridoPct: comRespostaCount > 0 ? (dentroDoSla / comRespostaCount) * 100 : null,
+    duplicidadeEvitadaPct:
+      totalDecisoes > 0 ? (duplicidadeEvitada / totalDecisoes) * 100 : null,
+    totalDecisoes,
+  };
+}
+
+export async function getRankingUnidades(): Promise<RankingUnidade[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("solicitacoes")
+    .select("unidade, status, data_solicitacao, data_resposta");
+
+  if (error) {
+    console.error("[frota] erro ao buscar ranking de unidades", error);
+    return [];
+  }
+
+  const rows = (data ?? []) as {
+    unidade: string;
+    status: string;
+    data_solicitacao: string;
+    data_resposta: string | null;
+  }[];
+
+  const porUnidade = new Map<
+    string,
+    { total: number; abertas: number; fechadas: number; temposHoras: number[] }
+  >();
+
+  for (const row of rows) {
+    const atual = porUnidade.get(row.unidade) ?? {
+      total: 0,
+      abertas: 0,
+      fechadas: 0,
+      temposHoras: [] as number[],
+    };
+    atual.total += 1;
+    if (STATUS_ABERTOS.includes(row.status)) atual.abertas += 1;
+    if (STATUS_FECHADOS.includes(row.status)) {
+      atual.fechadas += 1;
+      if (row.data_resposta) {
+        const inicio = new Date(row.data_solicitacao).getTime();
+        const fim = new Date(row.data_resposta).getTime();
+        atual.temposHoras.push((fim - inicio) / (1000 * 60 * 60));
+      }
+    }
+    porUnidade.set(row.unidade, atual);
+  }
+
+  return Array.from(porUnidade.entries())
+    .map(([unidade, agregados]) => ({
+      unidade,
+      total: agregados.total,
+      abertas: agregados.abertas,
+      fechadas: agregados.fechadas,
+      slaMedioHoras: mediaHoras(agregados.temposHoras),
+    }))
+    .sort((a, b) => b.total - a.total);
 }

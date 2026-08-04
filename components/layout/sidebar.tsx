@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
   ClipboardList,
+  LayoutDashboard,
   ListChecks,
   PlusCircle,
   Search,
@@ -33,7 +34,9 @@ const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/solicitar", label: "Solicitar Item Novo", icon: PlusCircle },
     { href: "/minhas-solicitacoes", label: "Minhas Solicitações", icon: ClipboardList },
   ],
-  frota_corporativo: [],
+  frota_corporativo: [
+    { href: "/governanca", label: "Governança", icon: LayoutDashboard },
+  ],
 };
 
 const PAINEL_LABEL: Record<Role, string> = {
@@ -42,12 +45,10 @@ const PAINEL_LABEL: Record<Role, string> = {
   frota_corporativo: "Frota Corporativo",
 };
 
-// Só os painéis que já existem como rota entram no trocador — Frota
-// Corporativo ainda não tem página (fica de fora até existir, senão o
-// link levaria a um 404).
 const PAINEIS_DISPONIVEIS: { role: Role; href: string }[] = [
   { role: "suprimentos", href: "/fila" },
   { role: "unidade", href: "/buscar" },
+  { role: "frota_corporativo", href: "/governanca" },
 ];
 
 export function Sidebar({

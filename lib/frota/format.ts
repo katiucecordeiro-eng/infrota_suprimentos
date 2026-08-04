@@ -17,3 +17,14 @@ export function formatarPreco(valor: number | string): string {
     currency: "BRL",
   });
 }
+
+// Usado nos KPIs de SLA do Painel Frota Corporativo (média em horas) —
+// vira dias quando passa de 48h, pra não mostrar "127h" num card.
+export function formatarHoras(horas: number): string {
+  if (horas < 48) return `${Math.round(horas)}h`;
+  return `${(horas / 24).toFixed(1)}d`;
+}
+
+export function formatarPercentual(valor: number): string {
+  return `${Math.round(valor)}%`;
+}
