@@ -6,7 +6,7 @@ import type { Profile, Role } from "@/lib/frota/types";
 // Rota "home" de cada papel — usada tanto no redirect pós-login quanto no
 // guard de página quando o usuário tenta acessar um painel que não é o seu.
 export const ROLE_HOME: Record<Role, string> = {
-  unidade: "/unidade",
+  unidade: "/buscar",
   suprimentos: "/fila",
   frota_corporativo: "/governanca",
 };

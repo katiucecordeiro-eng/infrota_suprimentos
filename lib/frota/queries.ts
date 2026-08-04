@@ -100,14 +100,14 @@ export async function getSolicitacaoById(
 export async function buscarItensSimilares(params: {
   referencia: string;
   descricao: string;
-  familiaId: string;
+  familiaId?: string;
 }): Promise<ItemSimilar[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("buscar_itens_similares", {
     p_referencia: params.referencia,
     p_descricao: params.descricao,
-    p_familia_id: params.familiaId,
+    p_familia_id: params.familiaId ?? null,
     p_limit: 10,
   });
 
@@ -166,6 +166,25 @@ export async function getUltimaDecisao(
     item_codigo_benner: row.item?.codigo_benner ?? null,
     item_nome_padronizado: row.item?.nome_padronizado ?? null,
   };
+}
+
+// RLS já restringe às solicitações da unidade do usuário logado (ver
+// policy "solicitacoes: unidade vê a própria unidade") — compartilhada
+// entre todo mundo do mesmo CDD, não só quem abriu cada uma.
+export async function getMinhasSolicitacoes(): Promise<SolicitacaoComRelacoes[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("solicitacoes")
+    .select(SOLICITACAO_SELECT)
+    .order("data_solicitacao", { ascending: false });
+
+  if (error) {
+    console.error("[frota] erro ao buscar minhas solicitações", error);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as SolicitacaoRow[]).map(mapSolicitacao);
 }
 
 export async function getFamilias() {

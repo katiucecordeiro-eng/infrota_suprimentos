@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListChecks, type LucideIcon } from "lucide-react";
+import { ClipboardList, ListChecks, PlusCircle, Search, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/layout/logout-button";
@@ -22,7 +22,11 @@ interface NavItem {
 // entram aqui quando existirem.
 const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   suprimentos: [{ href: "/fila", label: "Fila de Solicitações", icon: ListChecks }],
-  unidade: [],
+  unidade: [
+    { href: "/buscar", label: "Buscar Item", icon: Search },
+    { href: "/solicitar", label: "Solicitar Item Novo", icon: PlusCircle },
+    { href: "/minhas-solicitacoes", label: "Minhas Solicitações", icon: ClipboardList },
+  ],
   frota_corporativo: [],
 };
 
