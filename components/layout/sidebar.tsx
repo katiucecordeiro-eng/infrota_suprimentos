@@ -2,29 +2,48 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import { ListChecks, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/layout/logout-button";
+import type { Role } from "@/lib/frota/types";
 
-export interface SidebarNavItem {
+interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
 }
 
+// Definido aqui dentro (Client Component), não recebido como prop do
+// layout (Server Component): referências de componente/função não são
+// serializáveis na fronteira Server→Client do App Router — passar
+// `icon: ListChecks` como prop quebra em produção (passa no build local,
+// só estoura numa request real). Painel da Unidade/Frota Corporativo
+// entram aqui quando existirem.
+const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
+  suprimentos: [{ href: "/fila", label: "Fila de Solicitações", icon: ListChecks }],
+  unidade: [],
+  frota_corporativo: [],
+};
+
+const PAINEL_LABEL: Record<Role, string> = {
+  suprimentos: "Painel Suprimentos",
+  unidade: "Painel da Unidade",
+  frota_corporativo: "Frota Corporativo",
+};
+
 export function Sidebar({
-  painelLabel,
+  role,
   userNome,
   userSubtitulo,
-  items,
 }: {
-  painelLabel: string;
+  role: Role;
   userNome: string;
   userSubtitulo: string;
-  items: SidebarNavItem[];
 }) {
   const pathname = usePathname();
+  const items = NAV_ITEMS_BY_ROLE[role];
+
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-surface">
       <div className="flex h-14 shrink-0 items-center border-b border-border px-4">
@@ -34,7 +53,7 @@ export function Sidebar({
       </div>
       <div className="border-b border-border px-4 py-3">
         <p className="text-xs font-bold uppercase tracking-wide text-accent">
-          {painelLabel}
+          {PAINEL_LABEL[role]}
         </p>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
