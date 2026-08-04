@@ -10,7 +10,12 @@ export default async function SuprimentosLayout({
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar role="suprimentos" userNome={profile.nome} userSubtitulo="Suprimentos" />
+      <Sidebar
+        role="suprimentos"
+        userNome={profile.nome}
+        userSubtitulo="Suprimentos"
+        isAdmin={profile.is_admin}
+      />
       <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
   );

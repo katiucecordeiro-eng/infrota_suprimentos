@@ -8,28 +8,10 @@ import { requireRole } from "@/lib/auth/profile";
 import { normalizarPlaca } from "@/lib/frota/queries";
 import type { UnidadeGarantia } from "@/lib/frota/types";
 
-// Chamada direta do client (não é um <form action>) — só pra dar feedback
-// imediato de "essa placa já existe" antes de submeter o formulário
-// inteiro. Não precisa de useActionState porque não depende de FormData.
-export async function verificarPlaca(
-  placa: string,
-): Promise<{ existe: boolean; modeloVeiculo?: string }> {
-  await requireRole("suprimentos");
-
-  const normalizada = normalizarPlaca(placa);
-  if (!normalizada) return { existe: false };
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("placas")
-    .select("modelo_veiculo")
-    .eq("placa", normalizada)
-    .maybeSingle();
-
-  return data ? { existe: true, modeloVeiculo: data.modelo_veiculo } : { existe: false };
-}
-
 export type RegistrarCompraState = { error?: string } | undefined;
+
+const NOVA_PLACA = "novo";
+const SEM_PLACA = "nenhuma";
 
 const compraSchema = z.object({
   solicitacaoId: z.string().uuid(),
@@ -44,8 +26,13 @@ const compraSchema = z.object({
     .min(0, "Informe o prazo de entrega prometido, em dias."),
   prazoRealDias: z.coerce.number().int().min(0).optional(),
   notaFiscal: z.string().trim().min(1, "Informe o número da nota fiscal."),
-  placa: z.string().trim().optional(),
+  // "" = nenhuma placa; "novo" = cadastrar placa nova (campos abaixo);
+  // qualquer outro valor = placa já cadastrada, selecionada na lista.
+  placaId: z.string().trim().optional(),
+  placaNova: z.string().trim().optional(),
   modeloVeiculo: z.string().trim().optional(),
+  chassi: z.string().trim().optional(),
+  ano: z.coerce.number().int().min(1950).max(2100).optional(),
   garantiaQtd: z.coerce.number().int().min(1).optional(),
   garantiaUnidade: z.enum(["dias", "meses"]).optional(),
 });
@@ -80,8 +67,11 @@ export async function registrarCompra(
     prazoPrometidoDias: formData.get("prazoPrometidoDias"),
     prazoRealDias: optionalField(formData.get("prazoRealDias")),
     notaFiscal: formData.get("notaFiscal"),
-    placa: optionalField(formData.get("placa")),
+    placaId: optionalField(formData.get("placaId")),
+    placaNova: optionalField(formData.get("placaNova")),
     modeloVeiculo: optionalField(formData.get("modeloVeiculo")),
+    chassi: optionalField(formData.get("chassi")),
+    ano: optionalField(formData.get("ano")),
     garantiaQtd: optionalField(formData.get("garantiaQtd")),
     garantiaUnidade: optionalField(formData.get("garantiaUnidade")),
   });
@@ -94,6 +84,10 @@ export async function registrarCompra(
 
   if (data.fornecedorId === "novo" && !data.fornecedorNome) {
     return { error: "Informe o nome do novo fornecedor." };
+  }
+
+  if (data.placaId === NOVA_PLACA && (!data.placaNova || !data.modeloVeiculo)) {
+    return { error: "Informe a placa e o modelo do veículo pra cadastrar uma placa nova." };
   }
 
   const supabase = await createClient();
@@ -127,30 +121,27 @@ export async function registrarCompra(
     fornecedorId = novoFornecedor.id;
   }
 
-  let placaNormalizada: string | null = null;
-  if (data.placa) {
-    placaNormalizada = normalizarPlaca(data.placa);
-    const { data: placaExistente } = await supabase
-      .from("placas")
-      .select("placa")
-      .eq("placa", placaNormalizada)
-      .maybeSingle();
-
-    if (!placaExistente) {
-      if (!data.modeloVeiculo) {
-        return {
-          error: "Essa placa ainda não está cadastrada — informe o modelo do veículo.",
-        };
+  let placaFinal: string | null = null;
+  if (data.placaId === NOVA_PLACA) {
+    placaFinal = normalizarPlaca(data.placaNova!);
+    const { error: placaError } = await supabase.from("placas").insert({
+      placa: placaFinal,
+      modelo_veiculo: data.modeloVeiculo,
+      unidade: solicitacao.unidade,
+      chassi: data.chassi ?? null,
+      ano: data.ano ?? null,
+    });
+    if (placaError) {
+      if (placaError.code === "23505") {
+        return { error: "Já existe uma placa ou chassi cadastrado com esses dados." };
       }
-      const { error: placaError } = await supabase.from("placas").insert({
-        placa: placaNormalizada,
-        modelo_veiculo: data.modeloVeiculo,
-        unidade: solicitacao.unidade,
-      });
-      if (placaError) {
-        return { error: "Não foi possível cadastrar a placa." };
-      }
+      return { error: "Não foi possível cadastrar a placa." };
     }
+  } else if (data.placaId && data.placaId !== SEM_PLACA) {
+    // Placa já cadastrada, selecionada na lista — usa o valor direto; se
+    // for inválido por algum motivo, a foreign key de compras.placa barra
+    // na hora de inserir a compra, abaixo.
+    placaFinal = data.placaId;
   }
 
   const garantiaAte =
@@ -166,7 +157,7 @@ export async function registrarCompra(
     prazo_prometido_dias: data.prazoPrometidoDias,
     prazo_real_dias: data.prazoRealDias ?? null,
     nota_fiscal: data.notaFiscal,
-    placa: placaNormalizada,
+    placa: placaFinal,
     garantia_ate: garantiaAte,
   });
 

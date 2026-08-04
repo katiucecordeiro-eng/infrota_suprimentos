@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, ListChecks, PlusCircle, Search, type LucideIcon } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ClipboardList,
+  ListChecks,
+  PlusCircle,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/layout/logout-button";
@@ -18,8 +25,7 @@ interface NavItem {
 // layout (Server Component): referências de componente/função não são
 // serializáveis na fronteira Server→Client do App Router — passar
 // `icon: ListChecks` como prop quebra em produção (passa no build local,
-// só estoura numa request real). Painel da Unidade/Frota Corporativo
-// entram aqui quando existirem.
+// só estoura numa request real).
 const NAV_ITEMS_BY_ROLE: Record<Role, NavItem[]> = {
   suprimentos: [{ href: "/fila", label: "Fila de Solicitações", icon: ListChecks }],
   unidade: [
@@ -36,17 +42,28 @@ const PAINEL_LABEL: Record<Role, string> = {
   frota_corporativo: "Frota Corporativo",
 };
 
+// Só os painéis que já existem como rota entram no trocador — Frota
+// Corporativo ainda não tem página (fica de fora até existir, senão o
+// link levaria a um 404).
+const PAINEIS_DISPONIVEIS: { role: Role; href: string }[] = [
+  { role: "suprimentos", href: "/fila" },
+  { role: "unidade", href: "/buscar" },
+];
+
 export function Sidebar({
   role,
   userNome,
   userSubtitulo,
+  isAdmin,
 }: {
   role: Role;
   userNome: string;
   userSubtitulo: string;
+  isAdmin: boolean;
 }) {
   const pathname = usePathname();
   const items = NAV_ITEMS_BY_ROLE[role];
+  const outrosPaineis = PAINEIS_DISPONIVEIS.filter((p) => p.role !== role);
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-surface">
@@ -81,6 +98,24 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {isAdmin && outrosPaineis.length > 0 ? (
+        <div className="flex flex-col gap-1 border-t border-border p-3">
+          <p className="flex items-center gap-1 px-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <ArrowLeftRight className="size-3" /> Trocar de painel
+          </p>
+          {outrosPaineis.map((painel) => (
+            <Link
+              key={painel.role}
+              href={painel.href}
+              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            >
+              {PAINEL_LABEL[painel.role]}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between gap-2 border-t border-border p-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{userNome}</p>

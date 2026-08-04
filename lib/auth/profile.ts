@@ -11,10 +11,11 @@ export const ROLE_HOME: Record<Role, string> = {
   frota_corporativo: "/governanca",
 };
 
-// Busca o profile (role + unidade) do usuário autenticado. Retorna null se
-// não houver sessão — quem chama decide se isso significa redirect pro
-// login (o proxy.ts já cobre a maioria dos casos, isso é defesa em
-// profundidade para Server Components/Actions chamados diretamente).
+// Busca o profile (role + unidade + is_admin) do usuário autenticado.
+// Retorna null se não houver sessão — quem chama decide se isso significa
+// redirect pro login (o proxy.ts já cobre a maioria dos casos, isso é
+// defesa em profundidade para Server Components/Actions chamados
+// diretamente).
 export async function getCurrentProfile(): Promise<Profile | null> {
   const supabase = await createClient();
   const {
@@ -25,17 +26,18 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, nome, role, unidade")
+    .select("id, nome, role, unidade, is_admin")
     .eq("id", user.id)
     .single();
 
   return (data as Profile) ?? null;
 }
 
-// Garante que o usuário logado tem o papel esperado para ver essa página;
-// caso contrário manda pra home do papel real dele (ou pro login, sem
-// sessão). Usar no topo de cada layout de painel ((suprimentos), (unidade),
-// (governanca)).
+// Garante que o usuário logado pode ver essa página: precisa ter
+// role === role pedido, OU is_admin (nesse caso navega por qualquer um
+// dos 3 painéis a partir da mesma conta — profiles.role continua sendo só
+// o "painel padrão" pra onde login/"/" mandam). Sem sessão, manda pro
+// login; role errado sem is_admin, manda pra home do papel real.
 export async function requireRole(role: Role): Promise<Profile> {
   const profile = await getCurrentProfile();
 
@@ -43,7 +45,7 @@ export async function requireRole(role: Role): Promise<Profile> {
     redirect("/login");
   }
 
-  if (profile.role !== role) {
+  if (profile.role !== role && !profile.is_admin) {
     redirect(ROLE_HOME[profile.role]);
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { CheckCircle2, Loader2, ShoppingCart } from "lucide-react";
+import { useActionState, useMemo, useState } from "react";
+import { Car, ShoppingCart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Fornecedor } from "@/lib/frota/types";
-import { registrarCompra, verificarPlaca, type RegistrarCompraState } from "./actions";
+import type { Fornecedor, Placa } from "@/lib/frota/types";
+import { registrarCompra, type RegistrarCompraState } from "./actions";
 
 const NOVO_FORNECEDOR = "novo";
+const NOVA_PLACA = "novo";
+// Radix Select não aceite value="" em SelectItem (reservado internamente
+// pra representar "nada selecionado") — precisa de um sentinel não-vazio.
+const SEM_PLACA = "nenhuma";
 
 export function CompraForm({
   solicitacaoId,
@@ -24,12 +28,14 @@ export function CompraForm({
   pecaCodigoBenner,
   pecaNomePadronizado,
   fornecedores,
+  placas,
 }: {
   solicitacaoId: string;
   pecaId: string;
   pecaCodigoBenner: string;
   pecaNomePadronizado: string;
   fornecedores: Fornecedor[];
+  placas: Placa[];
 }) {
   const [state, formAction, isPending] = useActionState<RegistrarCompraState, FormData>(
     registrarCompra,
@@ -37,24 +43,12 @@ export function CompraForm({
   );
 
   const [fornecedorId, setFornecedorId] = useState("");
-  const [placa, setPlaca] = useState("");
-  const [placaStatus, setPlacaStatus] = useState<
-    "idle" | "checking" | "found" | "not-found"
-  >("idle");
-  const [modeloEncontrado, setModeloEncontrado] = useState<string | null>(null);
+  const [placaId, setPlacaId] = useState(SEM_PLACA);
 
-  async function handleVerificarPlaca() {
-    if (!placa.trim()) return;
-    setPlacaStatus("checking");
-    const resultado = await verificarPlaca(placa);
-    if (resultado.existe) {
-      setModeloEncontrado(resultado.modeloVeiculo ?? null);
-      setPlacaStatus("found");
-    } else {
-      setModeloEncontrado(null);
-      setPlacaStatus("not-found");
-    }
-  }
+  const placaSelecionada = useMemo(
+    () => placas.find((p) => p.placa === placaId) ?? null,
+    [placas, placaId],
+  );
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -137,46 +131,59 @@ export function CompraForm({
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Placa do veículo (opcional)
         </p>
-        <div className="flex items-end gap-2">
-          <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="placa">Placa</Label>
-            <Input
-              id="placa"
-              name="placa"
-              value={placa}
-              onChange={(event) => {
-                setPlaca(event.target.value.toUpperCase());
-                setPlacaStatus("idle");
-              }}
-              placeholder="Ex.: ABC1D23"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleVerificarPlaca}
-            disabled={!placa.trim() || placaStatus === "checking"}
-          >
-            {placaStatus === "checking" ? <Loader2 className="animate-spin" /> : null}
-            Verificar
-          </Button>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="placaId">Placa</Label>
+          <input type="hidden" name="placaId" value={placaId} />
+          <Select value={placaId} onValueChange={setPlacaId}>
+            <SelectTrigger id="placaId">
+              <SelectValue placeholder="Nenhuma / não aplicável" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SEM_PLACA}>Nenhuma / não aplicável</SelectItem>
+              {placas.map((placa) => (
+                <SelectItem key={placa.placa} value={placa.placa}>
+                  {placa.placa} — {placa.modelo_veiculo}
+                </SelectItem>
+              ))}
+              <SelectItem value={NOVA_PLACA}>+ Cadastrar nova placa</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {placaStatus === "found" ? (
-          <p className="flex items-center gap-2 text-sm text-success">
-            <CheckCircle2 className="size-4" /> Veículo já cadastrado
-            {modeloEncontrado ? ` — ${modeloEncontrado}` : ""}.
-          </p>
+        {placaSelecionada ? (
+          <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 text-sm">
+            <Car className="mt-0.5 size-4 shrink-0 text-accent" />
+            <div>
+              <p className="text-foreground">{placaSelecionada.modelo_veiculo}</p>
+              <p className="text-xs text-muted-foreground">
+                {placaSelecionada.chassi ? `Chassi: ${placaSelecionada.chassi}` : "Chassi não informado"}
+                {placaSelecionada.ano ? ` · Ano: ${placaSelecionada.ano}` : ""}
+                {" · "}
+                {placaSelecionada.unidade}
+              </p>
+            </div>
+          </div>
         ) : null}
 
-        {placaStatus === "not-found" ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-warning">
-              Placa não encontrada — cadastre o modelo do veículo pra registrar essa
-              placa.
-            </p>
-            <Label htmlFor="modeloVeiculo">Modelo do veículo *</Label>
-            <Input id="modeloVeiculo" name="modeloVeiculo" required />
+        {placaId === NOVA_PLACA ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="placaNova">Placa *</Label>
+              <Input id="placaNova" name="placaNova" required placeholder="Ex.: ABC1D23" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="modeloVeiculo">Modelo do veículo *</Label>
+              <Input id="modeloVeiculo" name="modeloVeiculo" required />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="chassi">Chassi</Label>
+              <Input id="chassi" name="chassi" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ano">Ano</Label>
+              <Input id="ano" name="ano" type="number" min="1950" max="2100" />
+            </div>
           </div>
         ) : null}
       </div>

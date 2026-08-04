@@ -250,17 +250,12 @@ export function normalizarPlaca(input: string): string {
   return input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-export async function buscarPlacas(query: string): Promise<Placa[]> {
+export async function getPlacas(): Promise<Placa[]> {
   const supabase = await createClient();
-  const termo = normalizarPlaca(query);
-  if (!termo) return [];
-
   const { data, error } = await supabase
     .from("placas")
-    .select("placa, modelo_veiculo, unidade")
-    .ilike("placa", `${termo}%`)
-    .order("placa", { ascending: true })
-    .limit(10);
+    .select("placa, modelo_veiculo, unidade, chassi, ano")
+    .order("placa", { ascending: true });
 
   if (error) {
     console.error("[frota] erro ao buscar placas", error);

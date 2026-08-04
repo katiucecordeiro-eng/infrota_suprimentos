@@ -55,6 +55,9 @@ export interface Profile {
   nome: string;
   role: Role;
   unidade: string | null;
+  // Quando true, navega pelos 3 painéis a partir da mesma conta — `role`
+  // continua valendo só como painel padrão (pra onde login/"/" mandam).
+  is_admin: boolean;
 }
 
 export interface Familia {
@@ -129,6 +132,8 @@ export interface Placa {
   placa: string;
   modelo_veiculo: string;
   unidade: string;
+  chassi: string | null;
+  ano: number | null;
 }
 
 export type UnidadeGarantia = "dias" | "meses";

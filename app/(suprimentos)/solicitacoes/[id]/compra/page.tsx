@@ -9,6 +9,7 @@ import {
   getCatalogoPadraoById,
   getComprasPorSolicitacao,
   getFornecedores,
+  getPlacas,
   getSolicitacaoById,
 } from "@/lib/frota/queries";
 import { CompraForm } from "./compra-form";
@@ -23,8 +24,9 @@ export default async function RegistrarCompraPage({
   const solicitacao = await getSolicitacaoById(id);
   if (!solicitacao || !solicitacao.item_vinculado_id) notFound();
 
-  const [fornecedores, comprasExistentes, peca] = await Promise.all([
+  const [fornecedores, placas, comprasExistentes, peca] = await Promise.all([
     getFornecedores(),
+    getPlacas(),
     getComprasPorSolicitacao(id),
     getCatalogoPadraoById(solicitacao.item_vinculado_id),
   ]);
@@ -80,6 +82,7 @@ export default async function RegistrarCompraPage({
             pecaCodigoBenner={peca.codigo_benner}
             pecaNomePadronizado={peca.nome_padronizado}
             fornecedores={fornecedores}
+            placas={placas}
           />
         </CardContent>
       </Card>

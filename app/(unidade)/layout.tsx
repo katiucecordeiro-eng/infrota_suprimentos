@@ -14,6 +14,7 @@ export default async function UnidadeLayout({
         role="unidade"
         userNome={profile.nome}
         userSubtitulo={profile.unidade ?? "Unidade não configurada"}
+        isAdmin={profile.is_admin}
       />
       <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
